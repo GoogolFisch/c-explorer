@@ -2,15 +2,31 @@
 #ifndef PARSER_H_
 #define PARSER_H_
 
-#include"includer.h"
+#include<stdio.h>
+#include<stdbool.h>
+
+void p_print(char *data,int start,int end){
+	if(end >= 0){
+		char save = data[end];
+		data[end] = 0;
+		printf("%s",data + start);
+		data[end] = save;
+	}
+	else{
+		printf("%s",data + start);
+	}
+}
+
+//#define PI 3.1415
 
 // do the half parsing, as well as printing
-void p_printfo(char *data,int size){
+void p_printfo(char *data,int size, bool printLn,bool usePrep){
 	int functionDepth = 0;
 	int curlBeginn = -1;
 	int lineNumber = 0;
+
+	bool isPrep = false;
 	char ch,pch = 0;
-	char replch;
 	char isString,isSingStr,isStrEsc,isComment,isMlComment;
 	int prevComment,endComment,nlBeginns;
 	isString = isSingStr = isStrEsc = isComment = isMlComment = 0;
@@ -33,8 +49,13 @@ void p_printfo(char *data,int size){
 		}
 		else if(isSingStr){
 			isSingStr++;
-			if(ch == '\'' && pch != '\\')
+			if(isStrEsc)isStrEsc = 0;
+			else if(ch == '\'')
 				isSingStr = 0;
+			else if(ch == '\\')
+				isStrEsc = 1;
+			else if(isSingStr > 2)
+				printf("E");
 		}
 		else if(isComment){
 			if(ch == '\n' && pch != '\\'){
@@ -51,24 +72,23 @@ void p_printfo(char *data,int size){
 		}
 		else{
 			// print info
-			if(ch == ';' && pch == '}' && functionDepth == 0){
-				replch = data[over];
-				data[over] = 0;
-				printf("\n%s",data + curlBeginn);
-				data[over] = replch;
+			if(ch == '\n' && pch != '\\' && isPrep & usePrep){
+				//printf("@");
+				isPrep = false;
+				p_print(data,nlBeginns - 1,over);
+			}
+			else if(ch == ';' && pch == '}' && functionDepth == 0){
+				p_print(data,curlBeginn,over + 1);
 			}
 			else if((ch == ';' || ch == '{') && functionDepth == 0){
 				printf("\n\n");
 				if(prevComment != -1){
-					replch = data[endComment];
-					data[endComment] = 0;
-					printf("%s\n",data + prevComment);
-					data[endComment] = replch;
+					p_print(data,prevComment,endComment + 1);
 				}
-				replch = data[over];
-				data[over] = 0;
-				printf("%d\t%s",lineNumber,data + nlBeginns);
-				data[over] = replch;
+				if(printLn)
+					printf("%d\t",lineNumber);
+				p_print(data,nlBeginns,over);
+				printf(";\b");
 				if(ch == '{')
 					curlBeginn = over;
 			}
@@ -89,13 +109,18 @@ void p_printfo(char *data,int size){
 				isMlComment = 1;
 			else if(ch == '\n' && pch != '\\')
 				nlBeginns = over + 1;
+			else if(ch == '#' && functionDepth == 0){
+				isPrep = true;
+			}
 
 			if((isComment || isMlComment) && functionDepth < 1){
 				prevComment = over - 1;
 			}
 		}
 	}
+	if(isPrep && usePrep){
+		p_print(data,nlBeginns - 1,-1);
+	}
 }
-
 
 #endif
